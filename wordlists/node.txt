@@ -24,7 +24,6 @@
 /graphql
 /graphiql
 /playground
-/api/graphql
 /v1/graphql
 /v2/graphql
 
@@ -158,3 +157,37 @@
 /debug/pprof
 /debug/vars
 /__debug
+
+# === Additional Next.js ===
+/.next
+/api/auth/[...nextauth]
+/api/trpc
+
+# === Additional Vue/Nuxt ===
+/.nuxt
+/vue.config.js
+
+# === Additional frameworks ===
+/svelte.config.js
+/astro.config.mjs
+/remix.config.js
+/tailwind.config.js
+/postcss.config.js
+
+# === Prisma / ORMs ===
+/prisma
+/api/prisma
+
+# === Additional auth paths ===
+/auth/signin
+/auth/signout
+/auth/csrf
+/auth/session
+/auth/providers
+
+# === WebSocket / SSE ===
+/sse
+/realtime
+/live
+/pusher
+/pubsub

@@ -60,7 +60,6 @@
 
 # === Common PHP apps ===
 /phpMyAdmin
-/phpmyadmin
 /adminer.php
 /adminer
 
@@ -86,3 +85,37 @@
 /cms
 /typo3
 /moodle
+
+# === Additional Laravel paths ===
+/storage/logs/laravel.log
+/.env.production
+/.env.example
+/routes
+/telescope
+/horizon
+/app/Http/Controllers
+
+# === Additional Symfony paths ===
+/var/log
+/var/cache
+/bundles
+/_error
+
+# === Additional WordPress paths ===
+/wp-content/debug.log
+/wp-content/upgrade
+/wp-content/cache
+/wp-content/backup-db
+/.maintenance
+/wp-json/wp/v2/users
+
+# === Additional Drupal paths ===
+/authorize.php
+/sites/all
+/sites/default/files
+
+# === Additional CMS / framework ===
+/favicon.ico
+/.gitignore
+/.npmrc
+/serverless.yml

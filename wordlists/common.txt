@@ -111,7 +111,6 @@
 /rss
 /atom
 /sitemap.xml.gz
-/robots.txt
 /humans.txt
 
 # === Application paths ===
@@ -189,7 +188,6 @@
 # === Monitoring / health ===
 /healthcheck
 /health-check
-/ping
 /heartbeat
 /uptime
 /monitor
@@ -229,9 +227,7 @@
 # === Common backup patterns ===
 /backup.sql
 /backup.db
-/backup.zip
 /backup.tar
-/backup.tar.gz
 /backup.tgz
 /database.sql
 /database.zip
@@ -272,12 +268,9 @@
 /settings.php
 
 # === Error / debug pages ===
-/error
 /errors
 /error.php
-/debug
 /debug.php
-/trace
 /trace.php
 /phpinfo
 /phpinfo.php
@@ -292,7 +285,6 @@
 /database
 /sql
 /phpPgAdmin
-/phppgadmin
 
 # === Log files ===
 /error.log

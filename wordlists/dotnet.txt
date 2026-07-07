@@ -25,7 +25,6 @@
 
 # === IIS / Windows ===
 /web.config
-/Web.config
 /iisstart.htm
 /iis-85.png
 /powershell
@@ -41,7 +40,6 @@
 /appsettings.Production.json
 /appsettings.Staging.json
 /Properties/launchSettings.json
-/Web.config
 /Web.Debug.config
 /Web.Release.config
 /packages.config
@@ -91,7 +89,6 @@
 /Admin
 
 # === Web API ===
-/api
 /api/v1
 /api/v2
 /odata
@@ -105,7 +102,6 @@
 /elmah
 /elmah.axd
 /error
-/Error
 /Error/Index
 /logs
 /log
@@ -113,7 +109,6 @@
 # === Server headers / info ===
 /server-info
 /server-status
-/ Trace.axd
 /trace.axd?clear=1
 
 # === Common Windows paths ===
@@ -134,3 +129,24 @@
 /downloads
 /temp
 /tmp
+
+# === Additional ASP.NET paths ===
+/WebResource.axd
+/ScriptResource.axd
+/SignalR
+/grpc
+
+# === Additional SharePoint ===
+/User%20Profile
+/MySite
+/search
+/pages
+/SiteCollection
+
+# === Additional Exchange/IIS ===
+/Exchange
+/ews
+/ecp/Current
+/owa/auth
+/mapi
+/Microsoft-Server-ActiveSync/Current
