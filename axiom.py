@@ -62,6 +62,7 @@ class Finding:
             "content_type": self.content_type,
             "found_in": self.found_in,
             "secrets": self.secrets,
+            "body_hash": self.body_hash,
         })
 
 
@@ -228,6 +229,7 @@ async def archivist(
     findings: list[Finding],
     leak_detector_fn,
     scope_pattern: Optional[re.Pattern] = None,
+    timeout: int = 10,
 ) -> list[str]:
     """Parse HTML for <script>/<link> tags, download JS bundles, extract routes.
     Also runs leak-detection on every downloaded JS file and adds findings."""
@@ -251,15 +253,15 @@ async def archivist(
         # Only fetch same-domain scripts (compare hostnames to be port-tolerant)
         parsed_src = urlparse(src)
         parsed_base = urlparse(base_url)
-        src_host = parsed_src.hostname or ""
-        if src_host != parsed_base.hostname:
+        src_host = (parsed_src.hostname or "").lower()
+        if src_host != (parsed_base.hostname or "").lower():
             return
         # Respect scope, same as Skeleton Key
         if scope_pattern and not scope_pattern.match(src_host):
             return
         async with sem:
             try:
-                resp = await client.get(src, timeout=httpx.Timeout(15))
+                resp = await client.get(src, timeout=httpx.Timeout(timeout))
                 if resp.status_code == 200:
                     text = _safe_text(resp)
                     _extract_routes(text, routes)
@@ -414,6 +416,7 @@ async def skeleton_key(
     scope_n = stats.get("scope_blocked", 0)
     err_n = stats.get("error", 0)
     hit_n = stats.get("hit_2xx", 0) + stats.get("hit_3xx", 0) + stats.get("hit_403", 0)
+    recurse_n = len(hits)  # only 200/301/302, not 403 — paths actually recursed
     miss_n = stats.get("miss", 0)
     print(f"  {C['B']}[*]{C['W']} Phase 1: {hit_n} hits, {miss_n} misses, {scope_n} scope-blocked, {err_n} errors")
 
@@ -464,18 +467,18 @@ async def skeleton_key(
 
 # Secret patterns
 _SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
-    ("aws_access_key",     re.compile(r"AKIA[0-9A-Z]{16}")),
+    ("aws_access_key",     re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
     ("aws_secret_key",     re.compile(r"(?i)aws(.{0,20})?(secret|key).{0,10}['\"]([0-9a-zA-Z/+]{40})['\"]")),
-    ("bearer_token",       re.compile(r"Bearer\s+[a-zA-Z0-9\-_\.]+\.[a-zA-Z0-9\-_\.]+\.[a-zA-Z0-9\-_]+")),
-    ("mongodb_uri",        re.compile(r"mongodb(?:\+srv)?://[^\"'\s]+")),
-    ("password_in_js",     re.compile(r"""password\s*[:=]\s*["'][^"']{4,}["']""", re.IGNORECASE)),
-    ("jwt_token",          re.compile(r"eyJ[a-zA-Z0-9\-_]+\.eyJ[a-zA-Z0-9\-_]+(?:\.[a-zA-Z0-9\-_]+)?")),
-    ("github_token",       re.compile(r"gh[pousr]_[a-zA-Z0-9]{36}")),
-    ("google_api_key",     re.compile(r"AIza[0-9A-Za-z\-_]{35}")),
+    ("bearer_token",       re.compile(r"\bBearer\s+[a-zA-Z0-9\-_\.]+\.[a-zA-Z0-9\-_\.]+\.[a-zA-Z0-9\-_]+\b")),
+    ("mongodb_uri",        re.compile(r"\bmongodb(?:\+srv)?://[^\"'\s]+")),
+    ("password_in_js",     re.compile(r"""password\s*[:=]\s*["'][^"']{8,}["']""", re.IGNORECASE)),
+    ("jwt_token",          re.compile(r"\beyJ[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+\.[a-zA-Z0-9\-_]+\b")),
+    ("github_token",       re.compile(r"\bgh[pousr]_[a-zA-Z0-9]{36}\b")),
+    ("google_api_key",     re.compile(r"\bAIza[0-9A-Za-z\-_]{35}\b")),
     ("private_key_header", re.compile(r"-----BEGIN (?:RSA |EC )?PRIVATE KEY-----")),
     ("slack_webhook",      re.compile(r"https://hooks\.slack\.com/services/T[0-9A-Z]+/B[0-9A-Z]+/[0-9A-Za-z]+")),
     ("discord_webhook",    re.compile(r"https://discord(?:app)?\.com/api/webhooks/\d+/[0-9A-Za-z\-_]+")),
-    ("stripe_key",         re.compile(r"(?:sk|pk)_(?:test|live)_[0-9a-zA-Z]{24,}")),
+    ("stripe_key",         re.compile(r"\b(?:sk|pk)_(?:test|live)_[0-9a-zA-Z]{24,64}\b")),
     ("generic_api_key",    re.compile(r"""api[_-]?key\s*[:=]\s*["'][0-9a-zA-Z\-_]{16,}["']""", re.IGNORECASE)),
 ]
 
@@ -523,9 +526,10 @@ def pathfinder_cluster(findings: list[Finding], min_cluster_pct: float = 0.30) -
     filtered: list[Finding] = []
 
     for key, group in clusters.items():
-        # If a cluster is >30% and returns 404, it's a soft-404 template
-        if len(group) / total > min_cluster_pct and group[0].status == 404:
-            print(f"  {C['B']}[*]{C['W']} Pathfinder: filtered {len(group)} soft-404s (cluster size={len(group)}/{total})")
+        # Filter large structural-similarity clusters (>30%) — these are soft-404 templates
+        # Works for both real 404 templates and 200-status "not found" pages
+        if len(group) / total > min_cluster_pct:
+            print(f"  {C['B']}[*]{C['W']} Pathfinder: filtered {len(group)} soft-404s (cluster size={len(group)}/{total}, status={group[0].status})")
             continue
         filtered.extend(group)
 
@@ -613,7 +617,7 @@ async def main() -> None:
         # Fetch root page for HTML parsing
         try:
             root_resp = await client.get(target, follow_redirects=True, timeout=httpx.Timeout(15))
-            root_html = root_resp.text
+            root_html = _safe_text(root_resp)
         except httpx.RequestError:
             root_html = ""
 
@@ -624,7 +628,7 @@ async def main() -> None:
         print(f"\n{C['Y']}[2/5] Archivist — parsing JS bundles...{C['W']}")
         archivist_routes: list[str] = []
         if not args.skip_archivist and root_html:
-            archivist_routes = await archivist(client, target, root_html, findings, leak_detect, scope_pattern)
+            archivist_routes = await archivist(client, target, root_html, findings, leak_detect, scope_pattern, args.timeout)
 
         # ── Step 3 & 4: Skeleton Key + Leak Detector (interleaved) ────
         print(f"\n{C['Y']}[3/5] Skeleton Key + Leak Detector...{C['W']}")

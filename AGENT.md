@@ -98,7 +98,7 @@ The agent MUST execute the following steps in order:
        "status": 200,
        "content_type": "application/json",
        "found_in": "js_bundle",
-       "secrets": ["mongodb://user:pass@localhost"]
+       "secrets": ["mongodb_uri", "password_in_js"]
      }
      ```
 

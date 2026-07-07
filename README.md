@@ -17,7 +17,7 @@ and detection rules accordingly.
 ## Installation
 
 ```bash
-git clone https://github.com/example/axiom.git
+git clone https://github.com/poppp334/axiom.git
 cd axiom
 
 # Create and activate a virtual environment
