@@ -1,0 +1,88 @@
+# Axiom — PHP wordlist
+# Curated for PHP-based targets (WordPress, Laravel, Symfony, Drupal, custom PHP).
+
+# === Core PHP paths ===
+/index.php
+/config.php
+/install.php
+/setup.php
+/phpinfo.php
+/info.php
+
+# === WordPress ===
+/wp-admin
+/wp-login.php
+/wp-content
+/wp-includes
+/wp-config.php
+/wp-cron.php
+/xmlrpc.php
+/wp-json
+/wp-content/uploads
+/wp-content/plugins
+/wp-content/themes
+
+# === Configuration files ===
+/.env
+/.env.local
+/.env.prod
+/.env.development
+/config/.env
+/application/config
+/config/database.php
+/config/app.php
+
+# === Laravel ===
+/.env.example
+/storage
+/storage/logs
+/storage/framework
+/vendor
+/composer.json
+/composer.lock
+/artisan
+/public/index.php
+/public/.htaccess
+
+# === Symfony ===
+/app.php
+/app_dev.php
+/_profiler
+/config/routes.yaml
+
+# === Drupal ===
+/user/login
+/user/register
+/node
+/update.php
+/cron.php
+/sites/default/settings.php
+
+# === Common PHP apps ===
+/phpMyAdmin
+/phpmyadmin
+/adminer.php
+/adminer
+
+# === File extensions ===
+/config.php.bak
+/config.php.old
+/config.php.swp
+/config.php~
+/index.php.bak
+/.htaccess
+/web.config
+
+# === Path traversal / LFI indicators ===
+/../
+/../../
+/etc/passwd
+/etc/hosts
+/proc/self/environ
+
+# === Common PHP CMS paths ===
+/administrator
+/administrator/index.php
+/cms
+/typo3
+/moodle

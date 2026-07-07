@@ -1,0 +1,160 @@
+# Axiom — Node/React wordlist
+# Curated for Node.js, Express, Next.js, React, Vue, Angular, and SPA targets.
+
+# === API endpoints ===
+/api
+/api/v1
+/api/v2
+/api/v3
+/api/docs
+/api/swagger
+/api/graphql
+/api/rest
+/api/auth
+/api/users
+/api/admin
+/api/health
+/api/status
+/api/metrics
+/api/internal
+/api/public
+/api/private
+
+# === GraphQL ===
+/graphql
+/graphiql
+/playground
+/api/graphql
+/v1/graphql
+/v2/graphql
+
+# === Next.js specific ===
+/_next
+/_next/static
+/_next/data
+/_next/image
+/_next/webpack-hmr
+/__nextjs_original-stack-frame
+
+# === Static assets ===
+/static
+/static/js
+/static/css
+/static/media
+/static/images
+/assets
+/public
+/build
+/dist
+/out
+
+# === Source maps ===
+/main.js.map
+/bundle.js.map
+/app.js.map
+/vendor.js.map
+/runtime.js.map
+/chunk.js.map
+
+# === Configuration ===
+/.env
+/.env.local
+/.env.development
+/.env.production
+/package.json
+/package-lock.json
+/yarn.lock
+/tsconfig.json
+/.eslintrc
+/.prettierrc
+/next.config.js
+/webpack.config.js
+/vite.config.js
+/nuxt.config.js
+
+# === SPA routes (React Router, Vue Router) ===
+/app
+/home
+/about
+/contact
+/pricing
+/blog
+/terms
+/privacy
+/faq
+/help
+/support
+/careers
+/jobs
+/press
+
+# === Auth endpoints ===
+/auth
+/auth/login
+/auth/register
+/auth/callback
+/auth/reset
+/auth/token
+/oauth
+/oauth/authorize
+/oauth/token
+/oauth/callback
+/login
+/logout
+/signin
+/signout
+/register
+/signup
+/forgot-password
+/reset-password
+/verify-email
+
+# === WebSocket / realtime ===
+/ws
+/wss
+/socket.io
+/socket.io/socket.io.js
+/realtime
+/stream
+/events
+/subscribe
+
+# === Monitoring / metrics ===
+/metrics
+/health
+/healthz
+/ready
+/readyz
+/live
+/status
+/ping
+/actuator
+/actuator/health
+/actuator/info
+
+# === Swagger / API docs ===
+/swagger
+/swagger.json
+/swagger.yaml
+/api-docs
+/api-docs.json
+/openapi.json
+/openapi.yaml
+/spec.json
+/spec.yaml
+
+# === Webhooks ===
+/webhook
+/webhooks
+/webhook/stripe
+/webhook/github
+/webhook/slack
+/hook
+/callback
+/payload
+
+# === Server-side rendering debug ===
+/debug
+/debug/pprof
+/debug/vars
+/__debug

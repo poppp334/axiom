@@ -1,0 +1,136 @@
+# Axiom — .NET wordlist
+# Curated for ASP.NET, ASP.NET Core, IIS, SharePoint, and Windows-server targets.
+
+# === ASP.NET extensions ===
+/default.aspx
+/login.aspx
+/register.aspx
+/admin.aspx
+/config.aspx
+/setup.aspx
+/error.aspx
+/trace.axd
+
+# === ASP.NET Core ===
+/api
+/api/values
+/api/auth
+/api/users
+/api/account
+/swagger
+/swagger/v1/swagger.json
+/api-docs
+/health
+/healthz
+
+# === IIS / Windows ===
+/web.config
+/Web.config
+/iisstart.htm
+/iis-85.png
+/powershell
+/owa
+/ecp
+/rpc
+/autodiscover
+/Microsoft-Server-ActiveSync
+
+# === Configuration files ===
+/appsettings.json
+/appsettings.Development.json
+/appsettings.Production.json
+/appsettings.Staging.json
+/Properties/launchSettings.json
+/Web.config
+/Web.Debug.config
+/Web.Release.config
+/packages.config
+/Global.asax
+/.env
+
+# === SharePoint ===
+/_layouts
+/_vti_bin
+/_vti_pvt
+/_vti_cnf
+/_vti_log
+/sites
+/personal
+/Shared Documents
+/SitePages
+/SiteAssets
+/Lists
+
+# === Classic ASP ===
+/global.asa
+/default.asp
+/login.asp
+/admin.asp
+
+# === WCF / SOAP ===
+/services
+/Service.svc
+/Service.svc?wsdl
+/Service1.svc
+/Service1.svc?wsdl
+/webservice.asmx
+/webservice.asmx?wsdl
+/api/soap
+
+# === MVC pattern ===
+/Home
+/Home/Index
+/Home/About
+/Home/Contact
+/Home/Privacy
+/Account
+/Account/Login
+/Account/Register
+/Account/Logout
+/Manage
+/Admin
+
+# === Web API ===
+/api
+/api/v1
+/api/v2
+/odata
+/$metadata
+/api/Token
+/api/Help
+/Help
+/Areas
+
+# === Elmah / Error pages ===
+/elmah
+/elmah.axd
+/error
+/Error
+/Error/Index
+/logs
+/log
+
+# === Server headers / info ===
+/server-info
+/server-status
+/ Trace.axd
+/trace.axd?clear=1
+
+# === Common Windows paths ===
+/aspnet_client
+/bin
+/App_Data
+/App_Code
+/App_GlobalResources
+/App_Browsers
+/Views
+/Controllers
+/Models
+/Scripts
+/Content
+/fonts
+/Images
+/uploads
+/downloads
+/temp
+/tmp

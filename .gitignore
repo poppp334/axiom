@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Output files
+output.jsonl
+*.jsonl
+
+# IDE
+.ds_store
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+
+# Temp
+/tmp/
+*.swp
+*.swo
+*~
+.deepseek/
