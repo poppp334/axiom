@@ -658,6 +658,16 @@ async def main() -> None:
         print(f"\n{C['Y']}[5/5] Writing output...{C['W']}")
 
         output_path = Path(args.output)
+        # Auto-increment: never overwrite a previous scan
+        if output_path.exists():
+            stem = output_path.stem
+            suffix = output_path.suffix
+            parent = output_path.parent
+            n = 1
+            while (parent / f"{stem}.{n}{suffix}").exists():
+                n += 1
+            output_path = parent / f"{stem}.{n}{suffix}"
+            print(f"  {C['B']}[*]{C['W']} Output file exists → writing to {output_path}")
         written = 0
         try:
             with output_path.open("w") as f:
