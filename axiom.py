@@ -252,13 +252,11 @@ async def archivist(
 
     async def _fetch_script(src_raw: str):
         # ── SSRF guard ──
-        # Reject protocol-relative URLs (//evil.com/…) — urljoin resolves them to
-        # absolute URLs on any host, bypassing same-origin intent.
-        if src_raw.startswith("//"):
-            return
+        # urljoin resolves relative + protocol-relative URLs correctly; the
+        # hostname check below catches cross-domain targets regardless.
         src = urljoin(base_url, src_raw)
         parsed_src = urlparse(src)
-        # Only allow http and https schemes
+        # Only allow http and https schemes (blocks file://, data:, javascript:, etc.)
         if parsed_src.scheme not in ("http", "https"):
             return
         # Only fetch same-domain scripts (compare hostnames, case-insensitive)
@@ -269,11 +267,11 @@ async def archivist(
         # Respect scope, same as Skeleton Key
         if scope_pattern and not scope_pattern.match(src_host):
             return
-        # Rate-limit: jittered delay between JS bundle fetches
-        if delay_ms > 0:
-            jitter = random.uniform(0.8, 1.2)
-            await asyncio.sleep((delay_ms / 1000) * jitter)
         async with sem:
+            # Rate-limit: jittered delay between JS bundle fetches
+            if delay_ms > 0:
+                jitter = random.uniform(0.8, 1.2)
+                await asyncio.sleep((delay_ms / 1000) * jitter)
             try:
                 resp = await client.get(src, timeout=httpx.Timeout(timeout))
                 if resp.status_code == 200:
@@ -334,16 +332,16 @@ async def _check_path(
 ) -> tuple[Optional[Finding], str]:
     """Request a single path; return (Finding_or_None, diagnostic_tag).
     Tags: scope_blocked | error | hit_2xx | hit_3xx | hit_403 | miss"""
-    # Rate-limit: jittered delay between requests to avoid WAF bans
-    if delay_ms > 0:
-        jitter = random.uniform(0.8, 1.2)
-        await asyncio.sleep((delay_ms / 1000) * jitter)
     url = urljoin(base_url, "/" + path)
     parsed = urlparse(url)
     host = parsed.hostname or parsed.netloc.split(":")[0]
     if scope_pattern and not scope_pattern.match(host):
         return None, "scope_blocked"
     async with sem:
+        # Rate-limit: jittered delay between requests to avoid WAF bans
+        if delay_ms > 0:
+            jitter = random.uniform(0.8, 1.2)
+            await asyncio.sleep((delay_ms / 1000) * jitter)
         try:
             resp = await client.get(url, follow_redirects=False, timeout=httpx.Timeout(10))
         except httpx.RequestError:
@@ -583,6 +581,9 @@ Examples:
 
 async def main() -> None:
     args = parse_args()
+    if args.delay < 0:
+        print(f"{C['R']}[!]{C['W']} --delay must be >= 0 (got {args.delay}); using 0")
+        args.delay = 0
     target = args.target.rstrip("/")
 
     # Build scope regex from glob
