@@ -31,7 +31,7 @@ Each post-mortem must include:
 | `debug-mantra` | `.claude/skills/debug-mantra/SKILL.md` | Four-step debugging discipline |
 | `scrutinize` | `.claude/skills/scrutinize/SKILL.md` | Pre-commit outsider review |
 | `post-mortem` | `.claude/skills/post-mortem/SKILL.md` | Bug fix engineering record |
-| `qwen-agent` | `.claude/skills/qwen-agent/SKILL.md` | Delegate menial tasks to cheap subagent |
+| `delegate` | `.claude/skills/delegate/SKILL.md` | Delegate menial tasks to faster sub-agent |
 
-These skills were fetched from `thananon/9arm-skills` and are embedded in this
-project's workflow. Every PR template and commit message should reference them.
+These skills were adapted from `thananon/9arm-skills` and customized for the
+axiom project and CodeWhale workflow. Every PR template and commit message should reference them.

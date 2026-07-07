@@ -125,7 +125,7 @@ The agent MUST execute the following steps in order:
 
    - **`post-mortem`** — For every fixed bug, write a canonical record: root cause, mechanism, fix, validation, and how it slipped through. Do not draft without a reliable repro, known cause, and validated fix [0†L18-L23].
 
-   - **`qwen-agent`** — Delegate menial, well-scoped coding tasks (bulk renames, formatting, boilerplate, scaffolding) to a cheap subagent via the `claude-9arm` command [0†L28-L33].
+   - **`delegate`** — Delegate menial, well-scoped coding tasks (bulk renames, formatting, boilerplate, scaffolding) to a cheap subagent via the `agent tool (model_strength: "faster")` command [0†L28-L33].
 
 3. **Embed these skills into the project's workflow:**
    - Create a `.claude/skills/` directory and symlink the skills (or copy them).
@@ -150,7 +150,7 @@ By the end of this project, the agent must produce:
 
 > **You are an elite offensive security engineer building `axiom`, a next-generation recon tool.**
 >
-> 1. **First**, fetch the 9arm-skills repository and adapt the `debug-mantra`, `scrutinize`, `post-mortem`, and `qwen-agent` skills as your SOP.
+> 1. **First**, fetch the 9arm-skills repository and adapt the `debug-mantra`, `scrutinize`, `post-mortem`, and `delegate` skills as your SOP.
 > 2. **Second**, read this `AGENT.md` in full. Internalize the four modules and the execution workflow.
 > 3. **Third**, begin implementation. Start with the fingerprinting module, then the Archivist, then the Skeleton Key, then the Leak Detector, and finally the Pathfinder.
 > 4. **Throughout development**, apply the `debug-mantra` to every bug. Write a `post-mortem` for every fixed issue. Use `scrutinize` before any major PR.
