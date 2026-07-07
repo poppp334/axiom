@@ -191,10 +191,34 @@ async def fingerprint(client: httpx.AsyncClient, base_url: str) -> Fingerprint:
 # Simple regex-based route extraction from JS — AST walking via esprima is
 # ideal, but a well-tuned regex covers 90% of real-world bundles without
 # the heavy Node dependency.
+# Targeted: known API/route prefixes (high signal)
 _ROUTE_RE = re.compile(
     r"""["'`](/?(?:api|v\d|graphql|webhook|rest|auth|oauth|callback|login|logout|register|user|admin|dashboard)[^"'`\s]*)["'`]""",
     re.IGNORECASE,
 )
+
+# Broad: any path-like string inside JS string literals (catches framework routes, SPA paths, etc.)
+_GENERIC_PATH_RE = re.compile(
+    r"""["'`](/[a-zA-Z][a-zA-Z0-9_\-.~:/?#\[\]@!$&'()*+,;=%]{2,})["'`]""",
+)
+
+# False-positive patterns to exclude from generic path extraction
+_PATH_BLACKLIST = re.compile(
+    r"/(?:https?:/|ftp:/|data:|blob:|//|\.\./|node_modules|vendor|\.min\.|\.map[^.]|\.json[^.]|dist/|build/|\*|\.(?:png|jpg|gif|svg|ico|woff2?|ttf|eot|css|scss|less)$)",
+    re.IGNORECASE,
+)
+
+
+def _extract_routes(text: str, routes: list[str]) -> None:
+    """Extract route-like paths from JS text using targeted + generic patterns."""
+    # High-signal: targeted API/route prefixes
+    for m in _ROUTE_RE.finditer(text):
+        routes.append(m.group(1))
+    # Broad sweep: any path-like string, with blacklist filter
+    for m in _GENERIC_PATH_RE.finditer(text):
+        path = m.group(1)
+        if not _PATH_BLACKLIST.search(path):
+            routes.append(path)
 
 
 async def archivist(
@@ -219,8 +243,7 @@ async def archivist(
     routes: list[str] = []
     for tag in soup.find_all("script"):
         if tag.string:
-            for m in _ROUTE_RE.finditer(tag.string):
-                routes.append(m.group(1))
+            _extract_routes(tag.string, routes)
     sem = asyncio.Semaphore(10)
 
     async def _fetch_script(src_raw: str):
@@ -239,8 +262,7 @@ async def archivist(
                 resp = await client.get(src, timeout=httpx.Timeout(15))
                 if resp.status_code == 200:
                     text = _safe_text(resp)
-                    for m in _ROUTE_RE.finditer(text):
-                        routes.append(m.group(1))
+                    _extract_routes(text, routes)
                     # Run leak detection on the JS file itself
                     leaked = leak_detector_fn(text)
                     bh = _structural_hash(text)
@@ -274,7 +296,11 @@ async def archivist(
         if r_clean not in seen:
             seen.add(r_clean)
             unique.append(r_clean)
-    print(f"  {C['B']}[*]{C['W']} Archivist extracted {len(unique)} routes from {len(scripts)} JS bundles")
+    print(f"  {C['B']}[*]{C['W']} Archivist: {len(unique)} unique routes from {len(scripts)} JS bundles")
+    if unique:
+        sample = ", ".join(f"/{r}" for r in unique[:8])
+        pad = " ..." if len(unique) > 8 else ""
+        print(f"       → {sample}{pad}")
     return unique
 
 
@@ -288,18 +314,19 @@ async def _check_path(
     scope_pattern: Optional[re.Pattern],
     findings: list[Finding],
     leak_detector_fn,
-) -> Optional[Finding]:
-    """Request a single path; return a Finding if interesting."""
+) -> tuple[Optional[Finding], str]:
+    """Request a single path; return (Finding_or_None, diagnostic_tag).
+    Tags: scope_blocked | error | hit_2xx | hit_3xx | hit_403 | miss"""
     url = urljoin(base_url, "/" + path)
     parsed = urlparse(url)
     host = parsed.hostname or parsed.netloc.split(":")[0]
     if scope_pattern and not scope_pattern.match(host):
-        return None
+        return None, "scope_blocked"
     async with sem:
         try:
             resp = await client.get(url, follow_redirects=False, timeout=httpx.Timeout(10))
         except httpx.RequestError:
-            return None
+            return None, "error"
 
     status = resp.status_code
     ct = resp.headers.get("Content-Type", "")
@@ -317,18 +344,19 @@ async def _check_path(
         col = _colour(status)
         extra = f" {C['Y']}🔑 SECRETS:{len(finding.secrets)}{C['W']}" if finding.secrets else ""
         print(f"  {col}[{status}]{C['W']} {url}{extra}")
-        return finding
+        return finding, "hit_2xx"
 
     elif 300 <= status < 400:
         findings.append(finding)
         print(f"  {C['B']}[{status} → {resp.headers.get('Location', '?')}]{C['W']} {url}")
-        return finding
+        return finding, "hit_3xx"
 
     elif status == 403:
         findings.append(finding)
         print(f"  {C['R']}[403]{C['W']} {url}")
+        return finding, "hit_403"
 
-    return None
+    return None, "miss"
 
 
 async def skeleton_key(
@@ -363,6 +391,7 @@ async def skeleton_key(
 
     # Phase 1: initial burst
     hits: list[str] = []
+    stats: dict[str, int] = defaultdict(int)
     tasks = [
         asyncio.create_task(
             _check_path(client, base_url, p, sem, scope_pattern, findings, leak_detector_fn)
@@ -371,12 +400,22 @@ async def skeleton_key(
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
     for r, path in zip(results, all_entries):
-        if isinstance(r, Exception) or r is None:
+        if isinstance(r, Exception):
+            stats["exception"] += 1
             continue
-        if r.status in (200, 301, 302):
+        finding, tag = r  # Unpack (Finding|None, str) tuple
+        stats[tag] += 1
+        if finding is not None and finding.status in (200, 301, 302):
             # Only recurse into directory-like paths (skip files like .env, .php, etc.)
             if not _FILE_EXT_RE.search(path):
                 hits.append(path)
+
+    # Print Phase 1 stats
+    scope_n = stats.get("scope_blocked", 0)
+    err_n = stats.get("error", 0)
+    hit_n = stats.get("hit_2xx", 0) + stats.get("hit_3xx", 0) + stats.get("hit_403", 0)
+    miss_n = stats.get("miss", 0)
+    print(f"  {C['B']}[*]{C['W']} Phase 1: {hit_n} hits, {miss_n} misses, {scope_n} scope-blocked, {err_n} errors")
 
     # Phase 2: recursive descent on discovered directories
     if depth < 1 or not hits:
@@ -402,18 +441,14 @@ async def skeleton_key(
 
         child_results = await asyncio.gather(*child_tasks, return_exceptions=True)
         for r, (parent, cpath) in zip(child_results, child_pairs):
-            if isinstance(r, Exception) or r is None:
+            if isinstance(r, Exception):
                 continue
-            if r.status in (200, 301, 302):
+            finding, tag = r  # Unpack (Finding|None, str) tuple
+            if finding is None:
+                continue
+            if finding.status in (200, 301, 302):
                 new_hits.append(cpath)
-                finding = Finding(
-                    url=urljoin(base_url, "/" + cpath),
-                    status=r.status,
-                    content_type=r.content_type,
-                    found_in="recursive",
-                    secrets=r.secrets,
-                )
-                # Already added by _check_path; update found_in
+                # Update found_in from "wordlist" → "recursive"
                 for f in findings:
                     if f.url == finding.url:
                         f.found_in = "recursive"
@@ -525,13 +560,25 @@ async def main() -> None:
     args = parse_args()
     target = args.target.rstrip("/")
 
-    # Build scope regex from glob (e.g. "*.example.com" matches subdomains AND apex)
-    bare_domain = args.scope.replace("*.", "", 1).replace(".", r"\.")
-    scope_glob = args.scope.replace(".", r"\.").replace("*", r"[^.]+")
-    if args.scope.startswith("*."):
-        # Include the apex domain as well
+    # Build scope regex from glob
+    # Supported formats:
+    #   ".example.com"     → matches example.com + *.example.com  (common bug-bounty format)
+    #   "*.example.com"    → matches subdomains + apex
+    #   "example.com"      → matches only example.com
+    raw_scope = args.scope
+    if raw_scope.startswith(".") and not raw_scope.startswith("*."):
+        # Leading dot: treat as "apex and all subdomains"
+        apex = raw_scope.lstrip(".")
+        apex_escaped = apex.replace(".", r"\.")
+        subdomain_pattern = apex_escaped.replace("*", r"[^.]+") if "*" in apex_escaped else rf"[^.]+\.{apex_escaped}"
+        pattern = f"^(?:{apex_escaped}|{subdomain_pattern})$"
+        print(f"  {C['B']}[*]{C['W']} Scope '{raw_scope}' → matches '{apex}' + '*.{apex}'")
+    elif raw_scope.startswith("*."):
+        bare_domain = raw_scope.replace("*.", "", 1).replace(".", r"\.")
+        scope_glob = raw_scope.replace(".", r"\.").replace("*", r"[^.]+")
         pattern = f"^(?:{bare_domain}|{scope_glob})$"
     else:
+        scope_glob = raw_scope.replace(".", r"\.").replace("*", r"[^.]+")
         pattern = f"^{scope_glob}$"
     scope_pattern = re.compile(pattern)
 
