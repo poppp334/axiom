@@ -60,6 +60,7 @@ Options:
   --concurrency N         Concurrent request limit (default: 30)
   --output, -o PATH       Output JSONL file (default: output.jsonl)
   --timeout N             Per-request timeout in seconds (default: 10)
+  --delay MS              Delay between requests in ms with +/-20% jitter (default: 0)
   --skip-archivist        Skip JS bundle parsing
   --skip-recursive        Skip recursive descent (depth=1 only)
 ```

@@ -18,6 +18,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import random
 import re
 import time
 from collections import defaultdict
@@ -230,6 +231,7 @@ async def archivist(
     leak_detector_fn,
     scope_pattern: Optional[re.Pattern] = None,
     timeout: int = 10,
+    delay_ms: int = 0,
 ) -> list[str]:
     """Parse HTML for <script>/<link> tags, download JS bundles, extract routes.
     Also runs leak-detection on every downloaded JS file and adds findings."""
@@ -249,9 +251,17 @@ async def archivist(
     sem = asyncio.Semaphore(10)
 
     async def _fetch_script(src_raw: str):
+        # ── SSRF guard ──
+        # Reject protocol-relative URLs (//evil.com/…) — urljoin resolves them to
+        # absolute URLs on any host, bypassing same-origin intent.
+        if src_raw.startswith("//"):
+            return
         src = urljoin(base_url, src_raw)
-        # Only fetch same-domain scripts (compare hostnames to be port-tolerant)
         parsed_src = urlparse(src)
+        # Only allow http and https schemes
+        if parsed_src.scheme not in ("http", "https"):
+            return
+        # Only fetch same-domain scripts (compare hostnames, case-insensitive)
         parsed_base = urlparse(base_url)
         src_host = (parsed_src.hostname or "").lower()
         if src_host != (parsed_base.hostname or "").lower():
@@ -259,6 +269,10 @@ async def archivist(
         # Respect scope, same as Skeleton Key
         if scope_pattern and not scope_pattern.match(src_host):
             return
+        # Rate-limit: jittered delay between JS bundle fetches
+        if delay_ms > 0:
+            jitter = random.uniform(0.8, 1.2)
+            await asyncio.sleep((delay_ms / 1000) * jitter)
         async with sem:
             try:
                 resp = await client.get(src, timeout=httpx.Timeout(timeout))
@@ -316,9 +330,14 @@ async def _check_path(
     scope_pattern: Optional[re.Pattern],
     findings: list[Finding],
     leak_detector_fn,
+    delay_ms: int = 0,
 ) -> tuple[Optional[Finding], str]:
     """Request a single path; return (Finding_or_None, diagnostic_tag).
     Tags: scope_blocked | error | hit_2xx | hit_3xx | hit_403 | miss"""
+    # Rate-limit: jittered delay between requests to avoid WAF bans
+    if delay_ms > 0:
+        jitter = random.uniform(0.8, 1.2)
+        await asyncio.sleep((delay_ms / 1000) * jitter)
     url = urljoin(base_url, "/" + path)
     parsed = urlparse(url)
     host = parsed.hostname or parsed.netloc.split(":")[0]
@@ -371,6 +390,7 @@ async def skeleton_key(
     findings: list[Finding],
     leak_detector_fn,
     archivist_routes: list[str],
+    delay_ms: int = 0,
 ) -> None:
     """Tech-stack-adaptive recursive brute-force."""
     # Select wordlist
@@ -396,7 +416,7 @@ async def skeleton_key(
     stats: dict[str, int] = defaultdict(int)
     tasks = [
         asyncio.create_task(
-            _check_path(client, base_url, p, sem, scope_pattern, findings, leak_detector_fn)
+            _check_path(client, base_url, p, sem, scope_pattern, findings, leak_detector_fn, delay_ms)
         )
         for p in all_entries
     ]
@@ -437,7 +457,7 @@ async def skeleton_key(
                 child_path = f"{parent}/{suffix}"
                 child_tasks.append(
                     asyncio.create_task(
-                        _check_path(client, base_url, child_path, sem, scope_pattern, findings, leak_detector_fn)
+                        _check_path(client, base_url, child_path, sem, scope_pattern, findings, leak_detector_fn, delay_ms)
                     )
                 )
                 child_pairs.append((parent, child_path))
@@ -555,6 +575,7 @@ Examples:
     p.add_argument("--concurrency", type=int, default=30, help="Concurrent request limit (default: 30)")
     p.add_argument("--output", "-o", default="output.jsonl", help="Output JSONL file (default: output.jsonl)")
     p.add_argument("--timeout", type=int, default=10, help="Per-request timeout in seconds (default: 10)")
+    p.add_argument("--delay", type=int, default=0, metavar="MS", help="Delay between requests in ms with +/-20%% jitter (default: 0 = no delay)")
     p.add_argument("--skip-archivist", action="store_true", help="Skip JS bundle parsing")
     p.add_argument("--skip-recursive", action="store_true", help="Skip recursive descent")
     return p.parse_args()
@@ -591,6 +612,8 @@ async def main() -> None:
     print(f"  Scope:       {args.scope}")
     print(f"  Depth:       {args.depth}")
     print(f"  Concurrency: {args.concurrency}")
+    if args.delay > 0:
+        print(f"  Rate limit:  ~{args.delay}ms delay (jittered)")
     print()
 
     # HTTP client with sensible defaults
@@ -628,7 +651,7 @@ async def main() -> None:
         print(f"\n{C['Y']}[2/5] Archivist — parsing JS bundles...{C['W']}")
         archivist_routes: list[str] = []
         if not args.skip_archivist and root_html:
-            archivist_routes = await archivist(client, target, root_html, findings, leak_detect, scope_pattern, args.timeout)
+            archivist_routes = await archivist(client, target, root_html, findings, leak_detect, scope_pattern, args.timeout, args.delay)
 
         # ── Step 3 & 4: Skeleton Key + Leak Detector (interleaved) ────
         print(f"\n{C['Y']}[3/5] Skeleton Key + Leak Detector...{C['W']}")
@@ -643,6 +666,7 @@ async def main() -> None:
             findings=findings,
             leak_detector_fn=leak_detect,
             archivist_routes=archivist_routes,
+            delay_ms=args.delay,
         )
 
         # ── Step 5: Pathfinder (soft-404 filtering) ────────────────────
